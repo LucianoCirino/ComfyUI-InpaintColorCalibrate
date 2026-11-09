@@ -1,0 +1,13 @@
+[project]
+name = "comfyui-inpaintcolorcalibrate"
+description = "One node that fixes the colour cast in an inpainted area (video or image, any model)."
+version = "1.0.0"
+license = { file = "LICENSE" }
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/LucianoCirino/ComfyUI-InpaintColorCalibrate"
+
+[tool.comfy]
+PublisherId = "lucianocirino"
+DisplayName = "Inpaint Color Calibrate"
