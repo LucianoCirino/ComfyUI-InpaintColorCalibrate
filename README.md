@@ -27,7 +27,11 @@ Put it right after the decode:
 | `strength` | 1.0 = full correction |
 | `object_mask` | optional: what you removed (e.g. a SAM mask). Better results. |
 
-Ready-made workflows (video and image) are in [`example_workflows/`](example_workflows).
+Ready-made workflows are in [`example_workflows/`](example_workflows):
+- `minimax_h3_video_inpaint.json`: a full MiniMax H3 video inpaint (FL2VA model, DMAD 4-step LoRA,
+  ~1 MP, latent noise mask, optional reference picture) with this node before the original is pasted back.
+  Needs Video Helper Suite.
+- `video_inpaint_calibrate.json` / `image_inpaint_calibrate.json`: the node alone on a finished inpaint.
 
 ## Results
 
