@@ -108,6 +108,21 @@ def _match_len(x, n):
     return torch.cat([x, x[-1:].expand(n - x.shape[0], *x.shape[1:])], 0)
 
 
+# ---------------------------------------------------------------- structure
+
+def same_structure(gen_L, src_L, ratio=0.5):
+    """[T,H,W] lightness -> bool: pixels whose fine detail (edges, texture) matches the
+    original. Background the model only repainted keeps its structure and just shifts
+    colour; new content (a person, a hat, a jacket) has different structure and is
+    left out of the measurement."""
+    def hp(x):
+        return x - blur_mask(x, 2.0)
+    dg, ds = hp(gen_L), hp(src_L)
+    diff = blur_mask((dg - ds).abs(), 4.0)
+    contrast = blur_mask(dg.abs(), 4.0) + blur_mask(ds.abs(), 4.0) + 0.6
+    return diff / contrast < ratio
+
+
 # ---------------------------------------------------------------- estimate
 
 def estimate_shift(gen_lab, src_lab, trust, robust=True, max_px=150_000, frame_step=1):
@@ -141,7 +156,8 @@ def estimate_shift(gen_lab, src_lab, trust, robust=True, max_px=150_000, frame_s
 
 
 def calibrate(generated, original, mask, object_mask=None, strength=1.0, feather=None,
-              edge_skip=None, object_grow=None, robust=True, max_shift=12.0, chunk=24):
+              edge_skip=None, object_grow=None, robust=True, max_shift=12.0, chunk=24,
+              band_frac=0.10, give_up=10.0):
     """generated / original: IMAGE [T,H,W,3] 0..1. mask / object_mask: MASK [T,H,W], 1 = redrawn / object.
     Returns (corrected IMAGE, info dict)."""
     T, H, W, _ = generated.shape
@@ -159,6 +175,8 @@ def calibrate(generated, original, mask, object_mask=None, strength=1.0, feather
 
     # trusted pixels: inside the mask, away from its very edge (blend / VAE bleed), minus the object
     trust = shrink(m, edge_skip)
+    if band_frac:   # only the part of the mask near its edge (masks have a margin; objects sit inside)
+        trust = trust & ~shrink(m, edge_skip + max(4, int(band_frac * side)))
     if om is not None:
         trust = trust & ~grow(om, object_grow)
 
@@ -170,8 +188,12 @@ def calibrate(generated, original, mask, object_mask=None, strength=1.0, feather
     gl = torch.cat([rgb_to_lab(small(generated[i:i + chunk, ..., :3].float())) for i in range(0, T, chunk)])
     sl = torch.cat([rgb_to_lab(small(original[i:i + chunk].float())) for i in range(0, T, chunk)])
     use_robust = robust or om is None
+    tr_small = tr_small & same_structure(gl[..., 0], sl[..., 0])
     shift, used, share = estimate_shift(gl, sl, tr_small, robust=use_robust, frame_step=1 if T <= 96 else 2)
     del gl, sl
+    gave_up = bool(give_up) and float(shift.abs().max()) > float(give_up)
+    if gave_up:      # implausible for a model's colour cast: more likely an intended change, leave it
+        shift = torch.zeros_like(shift)
     shift = shift.clamp(-max_shift, max_shift) * float(strength)
 
     # apply inside the mask, feathered just past its edge
@@ -188,5 +210,6 @@ def calibrate(generated, original, mask, object_mask=None, strength=1.0, feather
     info = {"shift_L": round(float(shift[0]), 3), "shift_a": round(float(shift[1]), 3),
             "shift_b": round(float(shift[2]), 3), "frames_used": used,
             "trusted_share_of_frame": round(share, 4),
-            "method": "object-masked" if om is not None else ("robust" if use_robust else "plain")}
+            "method": "object-masked" if om is not None else ("robust" if use_robust else "plain"),
+            "gave_up": gave_up}
     return out, info

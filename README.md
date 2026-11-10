@@ -6,7 +6,7 @@ images, with any model (MiniMax H3, Wan, LTX, Flux...).
 ## Why
 
 Inpainted areas rarely match the original's colour, so you get a seam. MiniMax H3,
-for example, made the inpainted area darker in 16 of 17 tests and yellower in 15.
+for example, made the inpainted area slightly darker and yellower in almost every test, with every turbo LoRA and without one.
 
 ## How
 
@@ -27,21 +27,18 @@ Put it right after the decode:
 | `strength` | 1.0 = full correction |
 | `object_mask` | optional: what you removed (e.g. a SAM mask). Better results. |
 
-Example workflows (video and image) are in [`example_workflows/`](example_workflows).
+Ready-made workflows (video and image) are in [`example_workflows/`](example_workflows).
 
 ## Results
 
-A person was pasted into 7 clean clips and removed with MiniMax H3. The clean
-original is the right answer. The table shows colour error (ΔE) of the inpainted area,
-lower is better:
+Tested on MiniMax H3 inpaints where the right answer is known (background redrawn, or
+an object removed from a clean clip), on 10 clips. Colour error of the inpainted area
+against the truth (ΔE, lower is better): **45.1 without, 30.5 with**. It made none of
+them worse.
 
-| | no fix | with object mask | without |
-|---|---|---|---|
-| total over 7 clips | 27.1 | **16.8** | **17.0** |
-
-That's about 90% of the best possible single correction. On 23 more tests it helped
-22 and was negligibly worse on 1. Matching colour to a ring around the mask, the usual
-trick, made 6 of 17 clips worse.
+The correction is usually small (1 to 3 ΔE). It matters when the inpainted area
+visibly doesn't match its surroundings, like a yellow or darker patch at the mask edge.
+When there is no visible mismatch, it changes very little.
 
 ## Install
 
